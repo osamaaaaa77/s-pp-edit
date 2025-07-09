@@ -67,11 +67,10 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-// استقبال رسالة الطرد (من نفس الكود) - أضفنا حدث خاص
+// استقبال رسالة الطرد (من نفس الكود)
 socket.on("kick message", (data) => {
-  // رسالة باللون الأحمر تظهر في الشات
   const div = document.createElement("div");
-  div.textContent = `⚠️ اللاعب ${data.kicker} يطرد اللاعب ${data.kicked}`;
+  div.textContent = `⚠️ ${data.kicker} يطرد ${data.kicked}`;
   div.style.color = "red";
   div.style.fontWeight = "bold";
   chatMessages.appendChild(div);
@@ -87,12 +86,11 @@ function renderScores(scores) {
     div.style.alignItems = "center";
     div.style.gap = "6px";
 
-    // نص الاسم والنقاط
     const textSpan = document.createElement("span");
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // إذا اللاعب ليس انا، نضيف زر الكك
+    // نضيف زر الكك فقط إذا الاسم ليس اسمي
     if (p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
@@ -112,7 +110,6 @@ function renderScores(scores) {
           return;
         }
         lastKickTime = now;
-        // إرسال رسالة للطرد إلى السيرفر ليتم بثها
         socket.emit("kick player", { kicked: p.name });
       };
 
