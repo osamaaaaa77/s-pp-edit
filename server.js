@@ -3,7 +3,7 @@ const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
 
-const words = [ "مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة", "زومبي", "انف", /* ... بقية الكلمات ... */ ];
+const words = [ "مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة", "زومبي", "انف", "شنب", "ممرضة", "بيت", "ذهب", "بروكلي", "ديناصور", "اسد", "طائرة", "ضفدع", "فاصوليا", "تاج" ];
 let currentWord = "";
 let roundActive = false;
 
@@ -44,11 +44,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  // استقبال حدث الطرد الشكلي
   socket.on("kick player", ({ kicked }) => {
     io.emit("kick message", {
       kicker: socket.data.name,
-      kicked: kicked,
+      kicked,
     });
   });
 });
@@ -56,7 +55,11 @@ io.on("connection", (socket) => {
 function usersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
-    arr.push({ name: socket.data.name, points: socket.data.points });
+    arr.push({
+      id, // <-- مهم جداً لإخفاء زر "كك" عن نفسك
+      name: socket.data.name,
+      points: socket.data.points,
+    });
   }
   return arr;
 }
