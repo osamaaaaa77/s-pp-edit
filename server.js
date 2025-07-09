@@ -3,33 +3,20 @@ const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
 
-const words = [ /* كلمات اللعبة كما هي */ /* (احتفظ بقائمة الكلمات كما في كودك) */ ];
-
+const words = [/* كلمات كثيرة كما في كودك الأصلي */];
 let currentWord = "";
 let roundActive = false;
 
-app.use(express.static("public"));
+// تخزين آخر وقت طرد لكل لاعب (id => timestamp)
+const lastKickTimes = new Map();
 
-// لتعريف مسؤول (Admin) عن طريق أول لاعب يدخل أو اسم معين
-let adminSocketId = null;
+app.use(express.static("public"));
 
 io.on("connection", (socket) => {
   socket.data.points = 0;
+  socket.data.name = `لاعب${Math.floor(Math.random() * 10000)}`;
 
-  // تعيين اسم افتراضي
-  const defaultName = `لاعب${Math.floor(Math.random() * 10000)}`;
-  socket.data.name = defaultName;
-  socket.emit("set name", defaultName);
-
-  // تعيين أول متصل كمسؤول
-  if (!adminSocketId) {
-    adminSocketId = socket.id;
-    socket.data.isAdmin = true;
-    socket.emit("admin status", true);
-  } else {
-    socket.data.isAdmin = false;
-    socket.emit("admin status", false);
-  }
+  socket.emit("set name", socket.data.name);
 
   io.emit("state", {
     word: currentWord,
@@ -59,37 +46,66 @@ io.on("connection", (socket) => {
     }
   });
 
-  // استقبال طلب الطرد
-  socket.on("kick player", (kickId) => {
-    // فقط المسؤول يمكنه الطرد
-    if (socket.id !== adminSocketId) return;
+  // استقبال حدث طرد لاعب
+  socket.on("kick player", (targetName) => {
+    // الوقت الحالي
+    const now = Date.now();
+    const lastKick = lastKickTimes.get(socket.id) || 0;
 
-    const kickSocket = io.of("/").sockets.get(kickId);
-    if (kickSocket) {
-      kickSocket.emit("kicked");
-      kickSocket.disconnect(true);
+    // تحقق من وقت آخر طرد
+    if (now - lastKick < 10000) {
+      // أرسل رسالة خاصة للمرسل أن عليه الانتظار
+      socket.emit("chat message", {
+        name: "النظام",
+        msg: "انتظر 10 ثواني قبل محاولة طرد جديدة.",
+        system: true,
+      });
+      return;
     }
-  });
 
-  // عند انقطاع الاتصال، إذا كان هو المسؤول، عين مسؤول جديد
-  socket.on("disconnect", () => {
-    if (socket.id === adminSocketId) {
-      adminSocketId = null;
-      // عيّن مسؤول جديد إذا موجود
-      const sockets = Array.from(io.of("/").sockets.values());
-      if (sockets.length > 0) {
-        adminSocketId = sockets[0].id;
-        sockets[0].data.isAdmin = true;
-        sockets[0].emit("admin status", true);
+    // تحديث وقت الطرد الأخير
+    lastKickTimes.set(socket.id, now);
+
+    // البحث عن الهدف بالاسم
+    let targetSocket = null;
+    for (let [id, s] of io.of("/").sockets) {
+      if (s.data.name === targetName) {
+        targetSocket = s;
+        break;
       }
     }
+    if (!targetSocket) {
+      // الهدف غير موجود
+      socket.emit("chat message", {
+        name: "النظام",
+        msg: `لاعب باسم ${targetName} غير موجود.`,
+        system: true,
+      });
+      return;
+    }
+
+    // لا تسمح بطرد النفس
+    if (targetSocket.id === socket.id) {
+      socket.emit("chat message", {
+        name: "النظام",
+        msg: "لا يمكنك طرد نفسك.",
+        system: true,
+      });
+      return;
+    }
+
+    // بث رسالة طرد حمراء في الشات بدون طرد فعلي (مجرد شكل)
+    io.emit("kick message", {
+      from: socket.data.name,
+      to: targetName,
+    });
   });
 });
 
 function usersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
-    arr.push({ id, name: socket.data.name, points: socket.data.points });
+    arr.push({ name: socket.data.name, points: socket.data.points });
   }
   return arr;
 }
