@@ -8,7 +8,7 @@ const chatMessages = document.getElementById("chat-messages");
 const scoresDiv = document.getElementById("scores");
 const changeName = document.getElementById("change-name");
 
-let myId = null;
+let myName = null;
 let lastKickTime = 0;
 
 changeName.onclick = () => {
@@ -16,13 +16,8 @@ changeName.onclick = () => {
   if (name) socket.emit("set name", name);
 };
 
-// نحفظ معرفي عند الاتصال
-socket.on("connect", () => {
-  myId = socket.id;
-});
-
 socket.on("set name", (name) => {
-  socket.data = { name };
+  myName = name; // تحديث الاسم عند التغيير
 });
 
 socket.on("new round", (data) => {
@@ -49,6 +44,15 @@ socket.on("chat message", (data) => {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
+socket.on("kick message", (data) => {
+  const div = document.createElement("div");
+  div.textContent = `${data.kicker} يطرد ${data.kicked}`;
+  div.style.color = "red";
+  div.style.fontWeight = "bold";
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+
 answerInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -71,15 +75,6 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-socket.on("kick message", (data) => {
-  const div = document.createElement("div");
-  div.textContent = `⚠️ ${data.kicker} يطرد ${data.kicked}`;
-  div.style.color = "red";
-  div.style.fontWeight = "bold";
-  chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-});
-
 function renderScores(scores) {
   scoresDiv.innerHTML = "";
   scores.sort((a, b) => b.points - a.points);
@@ -93,8 +88,8 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // قارن بالمعرف، وليس الاسم فقط
-    if (p.id !== myId) {
+    // فقط إذا كان ليس هو نفسه
+    if (p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
       kickBtn.title = "اضغط لطرد هذا اللاعب (تأثير شكلي)";
@@ -108,9 +103,7 @@ function renderScores(scores) {
 
       kickBtn.onclick = () => {
         const now = Date.now();
-        if (now - lastKickTime < 10000) {
-          return;
-        }
+        if (now - lastKickTime < 10000) return; // حذف رسالة التنبيه فقط
         lastKickTime = now;
         socket.emit("kick player", { kicked: p.name });
       };
