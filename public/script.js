@@ -17,7 +17,16 @@ changeName.onclick = () => {
 };
 
 socket.on("set name", (name) => {
-  myName = name; // تحديث الاسم عند التغيير
+  myName = name;
+});
+
+socket.on("name-taken", (name) => {
+  const div = document.createElement("div");
+  div.textContent = `⚠️ هذا الاسم "${name}" مستخدم`;
+  div.style.color = "blue";
+  div.style.fontWeight = "bold";
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
 socket.on("new round", (data) => {
@@ -88,7 +97,7 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // فقط إذا كان ليس هو نفسه
+    // نمنع ظهور زر كك على نفسك
     if (p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
@@ -103,7 +112,7 @@ function renderScores(scores) {
 
       kickBtn.onclick = () => {
         const now = Date.now();
-        if (now - lastKickTime < 10000) return; // حذف رسالة التنبيه فقط
+        if (now - lastKickTime < 10000) return;
         lastKickTime = now;
         socket.emit("kick player", { kicked: p.name });
       };
