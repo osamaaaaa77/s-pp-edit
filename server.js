@@ -50,13 +50,22 @@ io.on("connection", (socket) => {
       kicked,
     });
   });
+
+  // حدث عند خروج اللاعب من الصفحة
+  socket.on('disconnect', () => {
+    io.emit("state", {
+      word: currentWord,
+      scores: usersScores(),
+    });
+    console.log(`اللاعب ${socket.data.name} غادر اللعبة.`);
+  });
 });
 
 function usersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
     arr.push({
-      id, // <-- مهم جداً لإخفاء زر "كك" عن نفسك
+      id, // <-- حفظ id لتجنب ظهور زر "كك" بجانب اسمك
       name: socket.data.name,
       points: socket.data.points,
     });
