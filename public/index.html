@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ar">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>   زيزوو  </title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game">
+      <div class="top">
+        <span id="current-word">...</span>
+      </div>
+
+      <input
+        id="answer"
+        placeholder="اكتب الكلمة هنا"
+        autocomplete="off"
+        autofocus
+        inputmode="text"
+      />
+
+      <div id="answer-chat"></div>
+
+      <div id="chat">
+        <h4>Chat</h4>
+        <div id="chat-messages"></div>
+        <input id="chat-input" placeholder="أرسل في الشات" autocomplete="off" />
+      </div>
+
+      <div id="scores"></div>
+
+      <button id="change-name">غير اسمك</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
