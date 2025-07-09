@@ -9,7 +9,7 @@ const scoresDiv = document.getElementById("scores");
 const changeName = document.getElementById("change-name");
 
 let myName = null;
-let lastKickTime = 0; // وقت آخر ضغطة كك
+let lastKickTime = 0;
 
 changeName.onclick = () => {
   const name = prompt("اكتب اسمك:");
@@ -67,7 +67,6 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-// استقبال رسالة الطرد (من نفس الكود)
 socket.on("kick message", (data) => {
   const div = document.createElement("div");
   div.textContent = `⚠️ ${data.kicker} يطرد ${data.kicked}`;
@@ -90,8 +89,8 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // نضيف زر الكك فقط إذا الاسم ليس اسمي
-    if (p.name !== myName) {
+    // لا تظهر زر "كك" إن كان الاسم هو اسمي الحالي
+    if (myName && p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
       kickBtn.title = "اضغط لطرد هذا اللاعب (تأثير شكلي)";
@@ -106,8 +105,7 @@ function renderScores(scores) {
       kickBtn.onclick = () => {
         const now = Date.now();
         if (now - lastKickTime < 10000) {
-          alert("يجب الانتظار 10 ثواني بين كل ضغطة كك.");
-          return;
+          return; // المدة فعالة، لكن بدون رسالة تنبيه
         }
         lastKickTime = now;
         socket.emit("kick player", { kicked: p.name });
