@@ -3,7 +3,7 @@ const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
 
-const words = ["شجرة", "سيارة", "كمبيوتر", "هاتف", "بطاطا"]; // للتجربة
+const words = [ "مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة", "زومبي", "انف", /* ... بقية الكلمات ... */ ];
 let currentWord = "";
 let roundActive = false;
 
@@ -44,28 +44,11 @@ io.on("connection", (socket) => {
     }
   });
 
-  // حدث الكك (التأثير الشكلي فقط)
-  socket.on("kick player", (data) => {
-    const kickedName = data.kicked;
-    const kickerName = socket.data.name;
-
-    // تحقق من وجود اللاعب المطلوب بين اللاعبين الحاليين
-    const targetSocket = [...io.of("/").sockets.values()].find(
-      (s) => s.data.name === kickedName
-    );
-
-    if (!targetSocket) {
-      socket.emit("chat message", {
-        name: "النظام",
-        msg: `لاعب باسم ${kickedName} غير موجود.`,
-      });
-      return;
-    }
-
-    // إرسال رسالة شكلية للجميع
+  // استقبال حدث الطرد الشكلي
+  socket.on("kick player", ({ kicked }) => {
     io.emit("kick message", {
-      kicker: kickerName,
-      kicked: kickedName,
+      kicker: socket.data.name,
+      kicked: kicked,
     });
   });
 });
