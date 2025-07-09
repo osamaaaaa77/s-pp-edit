@@ -8,46 +8,34 @@ const chatMessages = document.getElementById("chat-messages");
 const scoresDiv = document.getElementById("scores");
 const changeName = document.getElementById("change-name");
 
-let myId = null;
-let isAdmin = false; // هل أنا مسؤول
-let playerList = []; // قائمة اللاعبين مع معرفاتهم
+let myName = null;
+let lastKickTime = 0; // وقت آخر ضغطة كك
 
 changeName.onclick = () => {
   const name = prompt("اكتب اسمك:");
   if (name) socket.emit("set name", name);
 };
 
-socket.on("connect", () => {
-  myId = socket.id;
-});
-
 socket.on("set name", (name) => {
+  myName = name;
   socket.data = { name };
-});
-
-socket.on("admin status", (status) => {
-  isAdmin = status;
-  renderScores(playerList);
 });
 
 socket.on("new round", (data) => {
   currentWord.textContent = data.word;
   answerInput.value = "";
   answerChat.innerHTML = "";
-  playerList = data.scores;
-  renderScores(playerList);
+  renderScores(data.scores);
 });
 
 socket.on("round result", (data) => {
   answerChat.textContent = `✔️ ${data.winner} جاوب`;
-  playerList = data.scores;
-  renderScores(playerList);
+  renderScores(data.scores);
 });
 
 socket.on("state", (data) => {
   currentWord.textContent = data.word;
-  playerList = data.scores;
-  renderScores(playerList);
+  renderScores(data.scores);
 });
 
 socket.on("chat message", (data) => {
@@ -55,12 +43,6 @@ socket.on("chat message", (data) => {
   div.textContent = `${data.name}: ${data.msg}`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
-});
-
-// لو تم الطرد
-socket.on("kicked", () => {
-  alert("تم طردك من اللعبة");
-  window.location.reload();
 });
 
 answerInput.addEventListener("keydown", (e) => {
@@ -85,22 +67,55 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
+// استقبال رسالة الطرد (من نفس الكود) - أضفنا حدث خاص
+socket.on("kick message", (data) => {
+  // رسالة باللون الأحمر تظهر في الشات
+  const div = document.createElement("div");
+  div.textContent = `⚠️ اللاعب ${data.kicker} يطرد اللاعب ${data.kicked}`;
+  div.style.color = "red";
+  div.style.fontWeight = "bold";
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+
 function renderScores(scores) {
   scoresDiv.innerHTML = "";
   scores.sort((a, b) => b.points - a.points);
   scores.forEach((p) => {
     const div = document.createElement("div");
-    div.textContent = `${p.name}: ${p.points}`;
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.gap = "6px";
 
-    if (isAdmin && p.id !== myId) {
+    // نص الاسم والنقاط
+    const textSpan = document.createElement("span");
+    textSpan.textContent = `${p.name}: ${p.points}`;
+    div.appendChild(textSpan);
+
+    // إذا اللاعب ليس انا، نضيف زر الكك
+    if (p.name !== myName) {
       const kickBtn = document.createElement("button");
-      kickBtn.textContent = "اطرد";
-      kickBtn.style.marginLeft = "10px";
+      kickBtn.textContent = "كك";
+      kickBtn.title = "اضغط لطرد هذا اللاعب (تأثير شكلي)";
+      kickBtn.style.fontSize = "10px";
+      kickBtn.style.padding = "1px 4px";
+      kickBtn.style.backgroundColor = "#f0a";
+      kickBtn.style.color = "white";
+      kickBtn.style.border = "none";
+      kickBtn.style.borderRadius = "3px";
+      kickBtn.style.cursor = "pointer";
+
       kickBtn.onclick = () => {
-        if (confirm(`هل تريد طرد اللاعب ${p.name}؟`)) {
-          socket.emit("kick player", p.id);
+        const now = Date.now();
+        if (now - lastKickTime < 10000) {
+          alert("يجب الانتظار 10 ثواني بين كل ضغطة كك.");
+          return;
         }
+        lastKickTime = now;
+        // إرسال رسالة للطرد إلى السيرفر ليتم بثها
+        socket.emit("kick player", { kicked: p.name });
       };
+
       div.appendChild(kickBtn);
     }
 
