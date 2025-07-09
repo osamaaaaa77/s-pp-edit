@@ -8,7 +8,7 @@ const chatMessages = document.getElementById("chat-messages");
 const scoresDiv = document.getElementById("scores");
 const changeName = document.getElementById("change-name");
 
-let myName = null;
+let myId = null;
 let lastKickTime = 0;
 
 changeName.onclick = () => {
@@ -16,8 +16,12 @@ changeName.onclick = () => {
   if (name) socket.emit("set name", name);
 };
 
+// نحفظ معرفي عند الاتصال
+socket.on("connect", () => {
+  myId = socket.id;
+});
+
 socket.on("set name", (name) => {
-  myName = name;
   socket.data = { name };
 });
 
@@ -89,8 +93,8 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // لا تظهر زر "كك" إن كان الاسم هو اسمي الحالي
-    if (myName && p.name !== myName) {
+    // قارن بالمعرف، وليس الاسم فقط
+    if (p.id !== myId) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
       kickBtn.title = "اضغط لطرد هذا اللاعب (تأثير شكلي)";
@@ -105,7 +109,7 @@ function renderScores(scores) {
       kickBtn.onclick = () => {
         const now = Date.now();
         if (now - lastKickTime < 10000) {
-          return; // المدة فعالة، لكن بدون رسالة تنبيه
+          return;
         }
         lastKickTime = now;
         socket.emit("kick player", { kicked: p.name });
