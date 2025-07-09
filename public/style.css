@@ -1,0 +1,84 @@
+body {
+  font-family: sans-serif;
+  direction: rtl;
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  background: #f2f2f2;
+}
+
+.game {
+  width: 95%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.top {
+  margin: 20px 0;
+}
+
+#current-word {
+  font-size: 2rem;
+  font-weight: bold;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 0 5px #ccc;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+#answer-chat {
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 5px;
+  margin-bottom: 10px;
+  background-color: #e0ffe0;
+  color: #006600;
+  font-weight: bold;
+  border-radius: 6px;
+  text-align: center;
+}
+
+#chat-messages,
+#chat-input {
+  background-color: #ffe6f0;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  padding: 5px;
+}
+
+#chat-messages {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  text-align: right;
+}
+
+#chat h4 {
+  margin: 5px 0;
+}
+
+#scores {
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 5px;
+  margin-bottom: 10px;
+  background: white;
+  border-radius: 6px;
+  text-align: right;
+}
+
+button {
+  padding: 8px 12px;
+  font-size: 1rem;
+  margin-top: 10px;
+}
