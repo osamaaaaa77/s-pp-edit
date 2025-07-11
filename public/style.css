@@ -16,7 +16,7 @@ body {
 
 .top {
   text-align: center;
-  font-size: 2em;
+  font-size: 1.6em;
   margin-bottom: 10px;
   color: #eee;
 }
@@ -29,14 +29,6 @@ body {
   border: none;
   font-size: 1em;
   box-sizing: border-box;
-}
-
-#answer {
-  background-color: #222;
-  color: white;
-}
-
-#chat-input {
   background-color: #222;
   color: white;
 }
@@ -57,15 +49,9 @@ body {
 #chat-messages {
   height: 120px;
   overflow-y: auto;
-  font-size: 0.9em;
+  font-size: 1.1em;
   color: #ccc;
   margin-bottom: 5px;
-}
-
-#answer-chat {
-  color: #0f0;
-  font-weight: bold;
-  margin-top: 8px;
 }
 
 #scores {
@@ -83,7 +69,7 @@ button {
 #change-name {
   margin-top: 10px;
   width: 100%;
-  background-color: #f0a;
+  background-color: #6699cc; /* أزرق خفيف */
   color: white;
   font-weight: bold;
   padding: 8px 0;
