@@ -1,18 +1,20 @@
 <!DOCTYPE html>
 <html lang="ar">
   <head>
-    <meta charset="UTF-8" /><!DOCTYPE html>
-<html lang="ar">
-  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>زيزو</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- واجهة إدخال الاسم -->
-    <div id="name-screen">
-      <input id="name-input" placeholder="اكتب اسمك للدخول" autocomplete="off" />
+    <!-- شاشة إدخال الاسم -->
+    <div id="name-screen" style="text-align:center; padding: 50px;">
+      <input
+        id="name-input"
+        placeholder="اكتب اسمك واضغط Enter للدخول"
+        autocomplete="off"
+        style="padding: 10px; font-size: 1.2em; width: 80%; max-width: 300px; border-radius: 8px; border: none;"
+      />
     </div>
 
     <!-- واجهة اللعبة -->
@@ -46,7 +48,7 @@
 
       const nameInput = document.getElementById("name-input");
       const nameScreen = document.getElementById("name-screen");
-      const gameScreen = document.querySelector(".game");
+      const gameDiv = document.querySelector(".game");
 
       nameInput.focus();
 
@@ -56,46 +58,11 @@
           if (name) {
             socket.emit("set name", name);
             nameScreen.style.display = "none";
-            gameScreen.style.display = "block";
+            gameDiv.style.display = "block";
           }
         }
       });
     </script>
-    <script src="script.js"></script>
-  </body>
-</html>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>زيزو  </title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="game">
-      <div class="top">
-        <span id="current-word">...</span>
-      </div>
-
-      <input
-        id="answer"
-        placeholder="اكتب الكلمة هنا"
-        autocomplete="off"
-        autofocus
-        inputmode="text"
-      />
-
-      <div id="answer-chat"></div>
-
-      <div id="chat">
-        <h4>Chat</h4>
-        <div id="chat-messages"></div>
-        <input id="chat-input" placeholder="أرسل في الشات" autocomplete="off" />
-      </div>
-
-      <div id="scores"></div>
-
-      <button id="change-name">غير اسمك</button>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
