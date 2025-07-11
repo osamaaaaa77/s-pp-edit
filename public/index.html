@@ -49,6 +49,7 @@
       const nameInput = document.getElementById("name-input");
       const nameScreen = document.getElementById("name-screen");
       const gameDiv = document.querySelector(".game");
+      let myName = null;
 
       nameInput.focus();
 
@@ -57,10 +58,14 @@
           const name = nameInput.value.trim();
           if (name) {
             socket.emit("set name", name);
-            nameScreen.style.display = "none";
-            gameDiv.style.display = "block";
           }
         }
+      });
+
+      socket.on("set name", (name) => {
+        myName = name;
+        nameScreen.style.display = "none";
+        gameDiv.style.display = "block";
       });
     </script>
     <script src="script.js"></script>
