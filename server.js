@@ -61,8 +61,6 @@ app.use(express.static("public"));
 
 io.on("connection", (socket) => {
   socket.data.points = 0;
-  socket.data.muted = false;
-  socket.data.ping = null;
 
   const defaultName = generateUniqueName();
   socket.data.name = defaultName;
@@ -73,19 +71,7 @@ io.on("connection", (socket) => {
     scores: usersScores(),
   });
 
-  // تحديث البنق الحقيقي كل 3 ثواني
-  function updatePing() {
-    if (!socket.connected) return;
-    socket.emit("ping-check", Date.now(), (clientTime) => {
-      const now = Date.now();
-      socket.data.ping = now - clientTime;
-    });
-    setTimeout(updatePing, 3000);
-  }
-  updatePing();
-
   socket.on("chat message", (msg) => {
-    if (socket.data.muted) return;
     io.emit("chat message", { name: socket.data.name, msg });
   });
 
@@ -101,13 +87,13 @@ io.on("connection", (socket) => {
 
   socket.on("answer", (ans) => {
     if (!roundActive) return;
-    const trimmed = ans.trim().replace(/\s/g, "");
+    const trimmed = ans.trim().replace(/\s/g, ""); // نشيل المسافات من الإجابة
     const correctWordNoSpace = currentWord.replace(/\s/g, "");
 
     if (
-      trimmed === correctWordNoSpace ||
-      ans.trim() === currentWord ||
-      trimmed === "،"
+      trimmed === correctWordNoSpace || // بدون مسافات
+      ans.trim() === currentWord ||     // بنفس الشكل الأصلي مع المسافات
+      trimmed === "،"                   
     ) {
       roundActive = false;
       socket.data.points++;
@@ -130,14 +116,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("mute player", (nameToMute) => {
-    if (nameToMute === socket.data.name) return;
-    const targetSocket = findSocketByName(nameToMute);
-    if (!targetSocket) return;
-    targetSocket.data.muted = !targetSocket.data.muted;
-    io.emit("state", { word: currentWord, scores: usersScores() });
-  });
-
   socket.on("disconnect", () => {
     io.emit("state", {
       word: currentWord,
@@ -149,12 +127,7 @@ io.on("connection", (socket) => {
 function usersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
-    arr.push({
-      name: socket.data.name,
-      points: socket.data.points,
-      ping: socket.data.ping || 0,
-      muted: socket.data.muted || false,
-    });
+    arr.push({ name: socket.data.name, points: socket.data.points });
   }
   return arr;
 }
