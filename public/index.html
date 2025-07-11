@@ -7,18 +7,7 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- شاشة إدخال الاسم -->
-    <div id="name-screen" style="text-align:center; padding: 50px;">
-      <input
-        id="name-input"
-        placeholder="اكتب اسمك واضغط Enter للدخول"
-        autocomplete="off"
-        style="padding: 10px; font-size: 1.2em; width: 80%; max-width: 300px; border-radius: 8px; border: none;"
-      />
-    </div>
-
-    <!-- واجهة اللعبة -->
-    <div class="game" style="display: none">
+    <div class="game">
       <div class="top">
         <span id="current-word">...</span>
       </div>
@@ -29,6 +18,14 @@
         autocomplete="off"
         autofocus
         inputmode="text"
+      />
+
+      <!-- مربع تغيير الاسم يوضع تحت خانة الإجابة مباشرة -->
+      <input
+        id="name-input"
+        placeholder="اكتب اسمك"
+        autocomplete="off"
+        style="margin: 6px 0"
       />
 
       <div id="answer-chat"></div>
@@ -43,31 +40,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-      const socket = io();
-
-      const nameInput = document.getElementById("name-input");
-      const nameScreen = document.getElementById("name-screen");
-      const gameDiv = document.querySelector(".game");
-      let myName = null;
-
-      nameInput.focus();
-
-      nameInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          const name = nameInput.value.trim();
-          if (name) {
-            socket.emit("set name", name);
-          }
-        }
-      });
-
-      socket.on("set name", (name) => {
-        myName = name;
-        nameScreen.style.display = "none";
-        gameDiv.style.display = "block";
-      });
-    </script>
     <script src="script.js"></script>
   </body>
 </html>
