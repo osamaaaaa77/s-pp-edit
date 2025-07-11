@@ -1,7 +1,69 @@
 <!DOCTYPE html>
 <html lang="ar">
   <head>
+    <meta charset="UTF-8" /><!DOCTYPE html>
+<html lang="ar">
+  <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>زيزو</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- واجهة إدخال الاسم -->
+    <div id="name-screen">
+      <input id="name-input" placeholder="اكتب اسمك للدخول" autocomplete="off" />
+    </div>
+
+    <!-- واجهة اللعبة -->
+    <div class="game" style="display: none">
+      <div class="top">
+        <span id="current-word">...</span>
+      </div>
+
+      <input
+        id="answer"
+        placeholder="اكتب الكلمة هنا"
+        autocomplete="off"
+        autofocus
+        inputmode="text"
+      />
+
+      <div id="answer-chat"></div>
+
+      <div id="chat">
+        <h4>Chat</h4>
+        <div id="chat-messages"></div>
+        <input id="chat-input" placeholder="أرسل في الشات" autocomplete="off" />
+      </div>
+
+      <div id="scores"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      const nameInput = document.getElementById("name-input");
+      const nameScreen = document.getElementById("name-screen");
+      const gameScreen = document.querySelector(".game");
+
+      nameInput.focus();
+
+      nameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const name = nameInput.value.trim();
+          if (name) {
+            socket.emit("set name", name);
+            nameScreen.style.display = "none";
+            gameScreen.style.display = "block";
+          }
+        }
+      });
+    </script>
+    <script src="script.js"></script>
+  </body>
+</html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>زيزو  </title>
     <link rel="stylesheet" href="style.css" />
