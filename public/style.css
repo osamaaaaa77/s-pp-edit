@@ -16,7 +16,7 @@ body {
 
 .top {
   text-align: center;
-  font-size: 2em; /* تم تكبير حجم الكلمة */
+  font-size: 2em;
   margin-bottom: 10px;
   color: #eee;
 }
@@ -60,6 +60,12 @@ body {
   font-size: 0.9em;
   color: #ccc;
   margin-bottom: 5px;
+}
+
+#answer-chat {
+  color: #0f0;
+  font-weight: bold;
+  margin-top: 8px;
 }
 
 #scores {
