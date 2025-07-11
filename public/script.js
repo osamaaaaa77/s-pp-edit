@@ -10,7 +10,6 @@ const changeName = document.getElementById("change-name");
 
 let myName = null;
 let lastKickTime = 0;
-let mutedPlayers = new Set();
 
 changeName.onclick = () => {
   const name = prompt("اكتب اسمك:");
@@ -48,7 +47,6 @@ socket.on("state", (data) => {
 });
 
 socket.on("chat message", (data) => {
-  if (mutedPlayers.has(data.name)) return;
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
   chatMessages.appendChild(div);
@@ -93,48 +91,19 @@ function renderScores(scores) {
     const div = document.createElement("div");
     div.style.display = "flex";
     div.style.alignItems = "center";
-    div.style.gap = "8px";
-    div.style.marginBottom = "6px";
+    div.style.gap = "6px";
 
     const textSpan = document.createElement("span");
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    const pingSpan = document.createElement("span");
-    pingSpan.textContent = `🏓 ${p.ping ?? 0} ms`;
-    pingSpan.style.fontSize = "11px";
-    pingSpan.style.color = "#aaa";
-    div.appendChild(pingSpan);
-
-    if (p.name !== myName) {
-      const muteBtn = document.createElement("button");
-      muteBtn.textContent = mutedPlayers.has(p.name) ? "إلغاء الميوت" : "ميوت";
-      muteBtn.title = "كتم/إلغاء كتم هذا اللاعب";
-      muteBtn.style.fontSize = "11px";
-      muteBtn.style.padding = "2px 6px";
-      muteBtn.style.backgroundColor = mutedPlayers.has(p.name) ? "#a00" : "#f0a";
-      muteBtn.style.color = "white";
-      muteBtn.style.border = "none";
-      muteBtn.style.borderRadius = "3px";
-      muteBtn.style.cursor = "pointer";
-
-      muteBtn.onclick = () => {
-        socket.emit("mute player", p.name);
-        if (mutedPlayers.has(p.name)) mutedPlayers.delete(p.name);
-        else mutedPlayers.add(p.name);
-        renderScores(scores);
-      };
-
-      div.appendChild(muteBtn);
-    }
-
-    // زر كك (للطرد شكلي فقط)
+    // نمنع ظهور زر كك على نفسك
     if (p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
       kickBtn.title = "اضغط لطرد هذا اللاعب (تأثير شكلي)";
       kickBtn.style.fontSize = "10px";
-      kickBtn.style.padding = "1px 5px";
+      kickBtn.style.padding = "1px 4px";
       kickBtn.style.backgroundColor = "#f0a";
       kickBtn.style.color = "white";
       kickBtn.style.border = "none";
