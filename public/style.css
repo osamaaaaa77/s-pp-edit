@@ -85,3 +85,12 @@ button {
   border-radius: 5px;
   cursor: pointer;
 }
+
+#answer-chat {
+  color: #4caf50; /* أخضر */
+  font-weight: bold;
+  font-size: 18px;
+  height: 24px;
+  margin-bottom: 10px;
+  text-align: center;
+}
