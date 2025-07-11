@@ -10,6 +10,7 @@ const changeName = document.getElementById("change-name");
 
 let myName = null;
 let lastKickTime = 0;
+let mutedPlayers = [];
 
 changeName.onclick = () => {
   const name = prompt("اكتب اسمك:");
@@ -47,6 +48,7 @@ socket.on("state", (data) => {
 });
 
 socket.on("chat message", (data) => {
+  if (mutedPlayers.includes(data.name)) return;
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
   chatMessages.appendChild(div);
@@ -94,10 +96,9 @@ function renderScores(scores) {
     div.style.gap = "6px";
 
     const textSpan = document.createElement("span");
-    textSpan.textContent = `${p.name}: ${p.points}`;
+    textSpan.textContent = `${p.name}: ${p.points} (${p.ping}ms)`;
     div.appendChild(textSpan);
 
-    // نمنع ظهور زر كك على نفسك
     if (p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
@@ -109,15 +110,32 @@ function renderScores(scores) {
       kickBtn.style.border = "none";
       kickBtn.style.borderRadius = "3px";
       kickBtn.style.cursor = "pointer";
-
       kickBtn.onclick = () => {
         const now = Date.now();
         if (now - lastKickTime < 10000) return;
         lastKickTime = now;
         socket.emit("kick player", { kicked: p.name });
       };
-
       div.appendChild(kickBtn);
+
+      const muteBtn = document.createElement("button");
+      muteBtn.textContent = mutedPlayers.includes(p.name) ? "🔇" : "🔊";
+      muteBtn.style.fontSize = "10px";
+      muteBtn.style.padding = "1px 4px";
+      muteBtn.style.backgroundColor = "#555";
+      muteBtn.style.color = "white";
+      muteBtn.style.border = "none";
+      muteBtn.style.borderRadius = "3px";
+      muteBtn.style.cursor = "pointer";
+      muteBtn.onclick = () => {
+        if (mutedPlayers.includes(p.name)) {
+          mutedPlayers = mutedPlayers.filter(n => n !== p.name);
+        } else {
+          mutedPlayers.push(p.name);
+        }
+        renderScores(scores);
+      };
+      div.appendChild(muteBtn);
     }
 
     scoresDiv.appendChild(div);
