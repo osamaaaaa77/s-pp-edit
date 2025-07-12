@@ -72,7 +72,12 @@ io.on("connection", (socket) => {
     const defaultName = generateUniqueName();
     socket.data.name = defaultName;
     socket.emit("set name", defaultName);
-    io.emit("chat message", { name: "", msg: `⚪ انضم اللاعب ${defaultName}`, color: "blue" });
+
+    // رسالة دخول باللون الأزرق
+    io.emit("system message", {
+      msg: `${socket.data.name} دخل اللعبة`,
+      color: "blue"
+    });
   }
 
   io.emit("state", {
@@ -145,10 +150,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    if (!socket.data.observer && socket.data.name) {
-      io.emit("chat message", { name: "", msg: `🔵 خرج اللاعب ${socket.data.name}`, color: "blue" });
+    if (!socket.data.observer) {
+      io.emit("system message", {
+        msg: `${socket.data.name} خرج من اللعبة`,
+        color: "blue"
+      });
     }
-
     io.emit("state", {
       word: currentWord,
       scores: usersScores(),
