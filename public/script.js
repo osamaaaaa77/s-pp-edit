@@ -52,12 +52,22 @@ socket.on("state", (data) => {
   renderScores(data.scores);
 });
 
-// استقبال رسالة شات
+// استقبال رسالة شات عادية
 socket.on("chat message", (data) => {
-  if (mutedPlayers[data.name]) return; // تجاهل رسائل اللاعبين المكتومين محلياً
+  if (mutedPlayers[data.name]) return;
 
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
+  chatMessages.appendChild(div);
+  scrollChatToBottom();
+});
+
+// استقبال رسالة نظامية (دخول/خروج)
+socket.on("system message", (data) => {
+  const div = document.createElement("div");
+  div.textContent = data.msg;
+  div.style.color = data.color || "black";
+  div.style.fontWeight = "bold";
   chatMessages.appendChild(div);
   scrollChatToBottom();
 });
@@ -101,10 +111,8 @@ chatInput.addEventListener("keydown", (e) => {
 function renderScores(scores) {
   scoresDiv.innerHTML = "";
 
-  // ترتيب النقاط تنازلياً
   scores.sort((a, b) => b.points - a.points);
 
-  // عرض النقاط الحالية
   scores.forEach((p) => {
     const div = document.createElement("div");
     div.style.display = "flex";
@@ -115,7 +123,6 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // زر كتم خاص بك فقط
     if (!isObserver && p.name !== myName) {
       const muteBtn = document.createElement("button");
       muteBtn.textContent = mutedPlayers[p.name] ? "🔇" : "🔊";
@@ -144,21 +151,14 @@ function renderScores(scores) {
     scoresDiv.appendChild(div);
   });
 
-  // حفظ أعلى النقاط محلياً (Top 5)
   saveTopScores(scores);
-
-  // عرض أعلى النقاط تحت القائمة
   displayTopScores();
 }
 
 function saveTopScores(scores) {
-  // احفظ فقط أعلى 5، كل عنصر: {name, points}
   const top5 = scores.slice(0, 5).map(p => ({name: p.name, points: p.points}));
-
-  // اقرأ السابق من التخزين
   let saved = JSON.parse(localStorage.getItem("topScores") || "[]");
 
-  // دمج القائمتين مع تحديث أعلى النقاط
   top5.forEach(newScore => {
     const index = saved.findIndex(s => s.name === newScore.name);
     if (index === -1) {
@@ -170,10 +170,8 @@ function saveTopScores(scores) {
     }
   });
 
-  // ترتيب وحفظ أفضل 5 فقط
   saved.sort((a,b) => b.points - a.points);
   saved = saved.slice(0,5);
-
   localStorage.setItem("topScores", JSON.stringify(saved));
 }
 
@@ -181,16 +179,14 @@ function displayTopScores() {
   let topScores = JSON.parse(localStorage.getItem("topScores") || "[]");
   if (!topScores.length) return;
 
-  // عنوان القسم
   const title = document.createElement("div");
   title.textContent = "Top Scores";
   title.style.fontWeight = "bold";
   title.style.marginTop = "12px";
   title.style.fontSize = "18px";
-  title.style.color = "#007acc";  // لون أزرق مناسب
+  title.style.color = "#007acc";
   scoresDiv.appendChild(title);
 
-  // جدول أعلى النقاط
   topScores.forEach((p, i) => {
     const div = document.createElement("div");
     div.textContent = `${i+1}. ${p.name}: ${p.points}`;
@@ -200,7 +196,6 @@ function displayTopScores() {
   });
 }
 
-// تمرير الشات دائمًا لأسفل
 function scrollChatToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
