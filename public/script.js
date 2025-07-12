@@ -11,11 +11,8 @@ const changeName = document.getElementById("change-name");
 let myName = null;
 let lastKickTime = 0;
 const isObserver = window.location.search.includes("observer=");
-
-// قائمة أسماء اللاعبين المكتومين محلياً
 let mutedPlayers = JSON.parse(localStorage.getItem("mutedPlayers") || "{}");
 
-// زر تغيير الاسم
 changeName.onclick = () => {
   if (isObserver) return;
   const name = prompt("اكتب اسمك:");
@@ -52,9 +49,8 @@ socket.on("state", (data) => {
   renderScores(data.scores);
 });
 
-// استقبال رسالة شات
 socket.on("chat message", (data) => {
-  if (mutedPlayers[data.name]) return; // تجاهل رسائل اللاعبين المكتومين محلياً
+  if (mutedPlayers[data.name]) return;
 
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
@@ -71,7 +67,6 @@ socket.on("kick message", (data) => {
   scrollChatToBottom();
 });
 
-// إرسال الإجابة
 answerInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -84,7 +79,6 @@ answerInput.addEventListener("keydown", (e) => {
   }
 });
 
-// إرسال رسالة شات
 chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -97,7 +91,6 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-// عرض النقاط مع زر الكتم الخاص بك
 function renderScores(scores) {
   scoresDiv.innerHTML = "";
   scores.sort((a, b) => b.points - a.points);
@@ -108,10 +101,10 @@ function renderScores(scores) {
     div.style.gap = "6px";
 
     const textSpan = document.createElement("span");
-    textSpan.textContent = `${p.name}: ${p.points}`;
+    const pingDisplay = p.ping > 0 ? ` ${p.ping}🛜` : ""; // البنق إذا أكثر من صفر فقط
+    textSpan.textContent = `${p.name}: ${p.points}${pingDisplay}`;
     div.appendChild(textSpan);
 
-    // زر كتم خاص بك فقط
     if (!isObserver && p.name !== myName) {
       const muteBtn = document.createElement("button");
       muteBtn.textContent = mutedPlayers[p.name] ? "🔇" : "🔊";
@@ -141,7 +134,6 @@ function renderScores(scores) {
   });
 }
 
-// تمرير الشات دائمًا لأسفل
 function scrollChatToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
