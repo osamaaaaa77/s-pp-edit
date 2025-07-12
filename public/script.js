@@ -1,164 +1,122 @@
-const express = require("express");
-const app = express();
-const http = require("http").Server(app);
-const io = require("socket.io")(http);
+const socket = io();
 
-const adminIPs = [];
+const currentWord = document.getElementById("current-word");
+const answerInput = document.getElementById("answer");
+const answerChat = document.getElementById("answer-chat");
+const chatInput = document.getElementById("chat-input");
+const chatMessages = document.getElementById("chat-messages");
+const scoresDiv = document.getElementById("scores");
+const changeName = document.getElementById("change-name");
 
-const words = [/* ... (نفس قائمة الكلمات الطويلة بدون أي تغيير) ... */];
+let myName = null;
+const isObserver = window.location.search.includes("observer=");
+let mutedPlayers = JSON.parse(localStorage.getItem("mutedPlayers") || "{}");
 
-let currentWord = "";
-let roundActive = false;
-const mutedPlayers = new Set();
+changeName.onclick = () => {
+  if (isObserver) return;
+  const name = prompt("اكتب اسمك:");
+  if (name) socket.emit("set name", name);
+};
 
-app.use(express.static("public"));
-
-io.on("connection", (socket) => {
-  const clientIP = socket.handshake.address;
-  const isObserver = socket.handshake.headers.referer?.includes("observer=");
-  socket.data.observer = isObserver;
-  socket.data.isAdmin = adminIPs.includes(clientIP);
-  socket.data.lastPing = Date.now();
-
-  if (!isObserver) {
-    socket.data.points = 0;
-    const defaultName = generateUniqueName();
-    socket.data.name = defaultName;
-    socket.emit("set name", defaultName);
-  }
-
-  socket.on("ping-check", () => {
-    const now = Date.now();
-    socket.data.ping = now - socket.data.lastPing;
-    socket.data.lastPing = now;
-  });
-
-  io.emit("state", {
-    word: currentWord,
-    scores: usersScores(),
-  });
-
-  socket.on("chat message", (msg) => {
-    if (socket.data.observer) return;
-    if (mutedPlayers.has(socket.data.name) && !socket.data.isAdmin) return;
-    io.emit("chat message", { name: socket.data.name, msg });
-  });
-
-  socket.on("set name", (name) => {
-    if (socket.data.observer) return;
-    if (isNameTaken(name)) {
-      socket.emit("name-taken", name);
-      return;
-    }
-    socket.data.name = name;
-    socket.emit("set name", name);
-    io.emit("state", { word: currentWord, scores: usersScores() });
-  });
-
-  socket.on("answer", (ans) => {
-    if (socket.data.observer) return;
-    if (!roundActive) return;
-    const trimmed = ans.trim().replace(/\s/g, "");
-    const correctWordNoSpace = currentWord.replace(/\s/g, "");
-
-    if (
-      trimmed === correctWordNoSpace ||
-      ans.trim() === currentWord ||
-      trimmed === "-"
-    ) {
-      roundActive = false;
-      socket.data.points++;
-      io.emit("round result", {
-        winner: socket.data.name,
-        word: currentWord,
-        scores: usersScores(),
-      });
-      setTimeout(nextRound, 3000);
-    }
-  });
-
-  socket.on("kick player", ({ kicked }) => {
-    if (socket.data.observer) return;
-    if (!socket.data.isAdmin) return;
-    if (!kicked || kicked === socket.data.name) return;
-    const targetSocket = findSocketByName(kicked);
-    if (!targetSocket) return;
-    io.emit("kick message", {
-      kicker: socket.data.name,
-      kicked,
-    });
-  });
-
-  socket.on("mute player", ({ muted }) => {
-    if (!socket.data.isAdmin) return;
-    if (!muted) return;
-    mutedPlayers.add(muted);
-  });
-
-  socket.on("unmute player", ({ unmuted }) => {
-    if (!socket.data.isAdmin) return;
-    if (!unmuted) return;
-    mutedPlayers.delete(unmuted);
-  });
-
-  socket.on("disconnect", () => {
-    io.emit("state", {
-      word: currentWord,
-      scores: usersScores(),
-    });
-  });
+socket.on("set name", (name) => {
+  myName = name;
 });
 
-function usersScores() {
-  const arr = [];
-  for (let [id, socket] of io.of("/").sockets) {
-    if (!socket.data.observer) {
-      arr.push({
-        name: socket.data.name,
-        points: socket.data.points,
-        ping: socket.data.ping || 0,
-      });
-    }
-  }
-  return arr;
-}
-
-function nextRound() {
-  currentWord = words[Math.floor(Math.random() * words.length)];
-  roundActive = true;
-  io.emit("new round", { word: currentWord, scores: usersScores() });
-}
-
-function isNameTaken(name) {
-  for (let [id, socket] of io.of("/").sockets) {
-    if (!socket.data.observer && socket.data.name === name) return true;
-  }
-  return false;
-}
-
-function findSocketByName(name) {
-  for (let [id, socket] of io.of("/").sockets) {
-    if (!socket.data.observer && socket.data.name === name) return socket;
-  }
-  return null;
-}
-
-function generateUniqueName() {
-  let name;
-  do {
-    name = `لاعب${Math.floor(Math.random() * 10000)}`;
-  } while (isNameTaken(name));
-  return name;
-}
-
-// إرسال طلب ping لكل اللاعبين كل 3 ثواني
-setInterval(() => {
-  for (let [id, socket] of io.of("/").sockets) {
-    socket.emit("ping-check");
-  }
-}, 3000);
-
-http.listen(process.env.PORT || 3000, () => {
-  console.log("Started");
-  nextRound();
+socket.on("name-taken", (name) => {
+  const div = document.createElement("div");
+  div.textContent = `⚠️ هذا الاسم "${name}" مستخدم`;
+  div.style.color = "blue";
+  div.style.fontWeight = "bold";
+  chatMessages.appendChild(div);
+  scrollChatToBottom();
 });
+
+socket.on("new round", (data) => {
+  currentWord.textContent = data.word;
+  answerInput.value = "";
+  answerChat.innerHTML = "";
+  renderScores(data.scores);
+});
+
+socket.on("round result", (data) => {
+  answerChat.textContent = `✅ ${data.winner} جاوب`;
+  renderScores(data.scores);
+});
+
+socket.on("state", (data) => {
+  currentWord.textContent = data.word;
+  renderScores(data.scores);
+});
+
+socket.on("chat message", (data) => {
+  if (mutedPlayers[data.name]) return;
+
+  const div = document.createElement("div");
+  div.textContent = `${data.name}: ${data.msg}`;
+  chatMessages.appendChild(div);
+  scrollChatToBottom();
+});
+
+socket.on("kick message", (data) => {
+  const div = document.createElement("div");
+  div.textContent = `${data.kicker} يطرد ${data.kicked}`;
+  div.style.color = "red";
+  div.style.fontWeight = "bold";
+  chatMessages.appendChild(div);
+  scrollChatToBottom();
+});
+
+// استقبال طلب قياس البنق من السيرفر والرد فوراً
+socket.on("ping-check", (sentTime) => {
+  socket.emit("ping-check-response", sentTime);
+});
+
+answerInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (isObserver) return;
+    const ans = answerInput.value.trim();
+    if (ans !== "") {
+      socket.emit("answer", ans);
+    }
+    answerInput.value = "";
+  }
+});
+
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (isObserver) return;
+    const msg = chatInput.value.trim();
+    if (msg !== "") {
+      socket.emit("chat message", msg);
+    }
+    chatInput.value = "";
+  }
+});
+
+function renderScores(scores) {
+  scoresDiv.innerHTML = "";
+  scores.sort((a, b) => b.points - a.points);
+  scores.forEach((p) => {
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.gap = "6px";
+
+    const textSpan = document.createElement("span");
+    const pingDisplay = typeof p.ping === "number" && p.ping > 0 ? ` ${p.ping}🛜` : "";
+    textSpan.textContent = `${p.name}: ${p.points}${pingDisplay}`;
+    div.appendChild(textSpan);
+
+    if (!isObserver && p.name !== myName) {
+      const muteBtn = document.createElement("button");
+      muteBtn.textContent = mutedPlayers[p.name] ? "🔇" : "🔊";
+      muteBtn.title = mutedPlayers[p.name] ? "إلغاء كتم اللاعب" : "كتم اللاعب";
+      muteBtn.style.fontSize = "14px";
+      muteBtn.style.padding = "1px 6px";
+      muteBtn.style.backgroundColor = mutedPlayers[p.name] ? "#888" : "#ccc";
+      muteBtn.style.color = "black";
+      muteBtn.style.border = "none";
+      muteBtn.style.borderRadius = "3px";
+      muteBtn.style.cursor
