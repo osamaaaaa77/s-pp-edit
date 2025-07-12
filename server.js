@@ -81,6 +81,7 @@ io.on("connection", (socket) => {
 
   socket.on("chat message", (msg) => {
     if (socket.data.observer) return;
+    // إذا اللاعب ليس أدمين وتم كتمه من قبل الأدمين فلا ترسل رسائله
     if (mutedPlayers.has(socket.data.name) && !socket.data.isAdmin) return;
 
     io.emit("chat message", { name: socket.data.name, msg });
@@ -121,7 +122,7 @@ io.on("connection", (socket) => {
 
   socket.on("kick player", ({ kicked }) => {
     if (socket.data.observer) return;
-    if (!socket.data.isAdmin) return;
+    if (!socket.data.isAdmin) return; // فقط الأدمين يمكنه طرد اللاعبين
     if (!kicked || kicked === socket.data.name) return;
     const targetSocket = findSocketByName(kicked);
     if (!targetSocket) return;
@@ -132,9 +133,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("mute player", ({ muted }) => {
-    if (!socket.data.isAdmin) return;
+    if (!socket.data.isAdmin) return; // فقط الأدمين يمكنه كتم اللاعبين
     if (!muted) return;
     mutedPlayers.add(muted);
+    // لا ترسل رسالة أو حدث معين هنا لأن الكتم خاص فقط للأدمين نفسه
   });
 
   socket.on("unmute player", ({ unmuted }) => {
@@ -149,13 +151,6 @@ io.on("connection", (socket) => {
       scores: usersScores(),
     });
   });
-
-  // استقبال رد البنق
-  socket.on("ping-check-response", (sentTime) => {
-    const now = Date.now();
-    const ping = now - sentTime;
-    socket.data.ping = ping;
-  });
 });
 
 const mutedPlayers = new Set();
@@ -164,11 +159,7 @@ function usersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
     if (!socket.data.observer) {
-      arr.push({ 
-        name: socket.data.name, 
-        points: socket.data.points,
-        ping: socket.data.ping || 0
-      });
+      arr.push({ name: socket.data.name, points: socket.data.points });
     }
   }
   return arr;
@@ -179,16 +170,6 @@ function nextRound() {
   roundActive = true;
   io.emit("new round", { word: currentWord, scores: usersScores() });
 }
-
-// إرسال ping-check دورياً
-setInterval(() => {
-  const now = Date.now();
-  for (let [id, socket] of io.of("/").sockets) {
-    if (!socket.data.observer) {
-      socket.emit("ping-check", now);
-    }
-  }
-}, 3000);
 
 function isNameTaken(name) {
   for (let [id, socket] of io.of("/").sockets) {
