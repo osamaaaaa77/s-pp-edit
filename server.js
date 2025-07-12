@@ -100,7 +100,7 @@ io.on("connection", (socket) => {
     if (
       trimmed === correctWordNoSpace ||
       ans.trim() === currentWord ||
-      trimmed === "،"
+      trimmed === "-"
     ) {
       roundActive = false;
       socket.data.points++;
