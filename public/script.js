@@ -12,6 +12,9 @@ let myName = null;
 let lastKickTime = 0;
 const isObserver = window.location.search.includes("observer=");
 
+// قائمة أسماء اللاعبين المكتومين محلياً
+let mutedPlayers = JSON.parse(localStorage.getItem("mutedPlayers") || "{}");
+
 // زر تغيير الاسم
 changeName.onclick = () => {
   if (isObserver) return;
@@ -49,7 +52,10 @@ socket.on("state", (data) => {
   renderScores(data.scores);
 });
 
+// استقبال رسالة شات
 socket.on("chat message", (data) => {
+  if (mutedPlayers[data.name]) return; // تجاهل رسائل اللاعبين المكتومين محلياً
+
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
   chatMessages.appendChild(div);
@@ -91,7 +97,7 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-// عرض النقاط
+// عرض النقاط مع زر الكتم الخاص بك
 function renderScores(scores) {
   scoresDiv.innerHTML = "";
   scores.sort((a, b) => b.points - a.points);
@@ -105,6 +111,7 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
+    // زر الطرد (كما لديك سابقاً)
     if (!isObserver && p.name !== myName) {
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "كك";
@@ -125,6 +132,32 @@ function renderScores(scores) {
       };
 
       div.appendChild(kickBtn);
+    }
+
+    // زر كتم خاص بك فقط
+    if (!isObserver && p.name !== myName) {
+      const muteBtn = document.createElement("button");
+      muteBtn.textContent = mutedPlayers[p.name] ? "🔇" : "🔊";
+      muteBtn.title = mutedPlayers[p.name] ? "إلغاء كتم اللاعب" : "كتم اللاعب";
+      muteBtn.style.fontSize = "14px";
+      muteBtn.style.padding = "1px 6px";
+      muteBtn.style.backgroundColor = mutedPlayers[p.name] ? "#888" : "#ccc";
+      muteBtn.style.color = "black";
+      muteBtn.style.border = "none";
+      muteBtn.style.borderRadius = "3px";
+      muteBtn.style.cursor = "pointer";
+
+      muteBtn.onclick = () => {
+        if (mutedPlayers[p.name]) {
+          delete mutedPlayers[p.name];
+        } else {
+          mutedPlayers[p.name] = true;
+        }
+        localStorage.setItem("mutedPlayers", JSON.stringify(mutedPlayers));
+        renderScores(scores);
+      };
+
+      div.appendChild(muteBtn);
     }
 
     scoresDiv.appendChild(div);
