@@ -2,10 +2,11 @@ const express = require("express");
 const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
+const fs = require("fs");
 
 const adminIPs = [];
-
-const words = ["مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة",
+const topScoresFile = "./top-scores.json";
+const words = [
   "زومبي", "انف", "شنب", "ممرضة", "بيت", "ذهب", "بروكلي", "ديناصور", "اسد",
   "طائرة", "ضفدع", "فاصوليا", "تاج", "سنجاب", "دجاج", "طريق", "كوالا", "فراشة",
   "يضحك", "تبولة", "سحلية", "شامبو", "محفظة", "نجوم", "باص", "صيدلي", "مخدة",
@@ -53,13 +54,28 @@ const words = ["مكياج", "اسنان", "زيتون", "ثور", "كاميرا
   "نوم", "نمل", "مصور", "صحراء", "ذبابة", "ثوم", "شمام", "نحلة", "منديل",
   "قطة", "مسجد", "مفتاح", "راكون", "دراجة", "كنب", "مطر", "قطار", "بطه", "سلحفاة",
   "بلياردو", "مقص", "حقيبة", "شنطة", "فراخ", "ضبع", "كلب", "شاورما", "خاتم",
-  "مصباح", "دولفين", "افعى", "سكر", "بركان", "غواصة", "دب"
-];
+  "مصباح", "دولفين", "افعى", "سكر", "بركان", "غواصة", "دب" ];
 
 let currentWord = "";
 let roundActive = false;
+const mutedPlayers = new Set();
 
 app.use(express.static("public"));
+
+function loadTopScores() {
+  try {
+    return JSON.parse(fs.readFileSync(topScoresFile));
+  } catch {
+    return [];
+  }
+}
+
+function saveTopScores(scores) {
+  const top5 = scores
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 5);
+  fs.writeFileSync(topScoresFile, JSON.stringify(top5, null, 2));
+}
 
 io.on("connection", (socket) => {
   const clientIP = socket.handshake.address;
@@ -77,13 +93,12 @@ io.on("connection", (socket) => {
   io.emit("state", {
     word: currentWord,
     scores: usersScores(),
+    topScores: loadTopScores()
   });
 
   socket.on("chat message", (msg) => {
     if (socket.data.observer) return;
-    // إذا اللاعب ليس أدمين وتم كتمه من قبل الأدمين فلا ترسل رسائله
     if (mutedPlayers.has(socket.data.name) && !socket.data.isAdmin) return;
-
     io.emit("chat message", { name: socket.data.name, msg });
   });
 
@@ -95,12 +110,11 @@ io.on("connection", (socket) => {
     }
     socket.data.name = name;
     socket.emit("set name", name);
-    io.emit("state", { word: currentWord, scores: usersScores() });
+    io.emit("state", { word: currentWord, scores: usersScores(), topScores: loadTopScores() });
   });
 
   socket.on("answer", (ans) => {
-    if (socket.data.observer) return;
-    if (!roundActive) return;
+    if (socket.data.observer || !roundActive) return;
     const trimmed = ans.trim().replace(/\s/g, "");
     const correctWordNoSpace = currentWord.replace(/\s/g, "");
 
@@ -111,19 +125,20 @@ io.on("connection", (socket) => {
     ) {
       roundActive = false;
       socket.data.points++;
+      const scores = usersScores();
+      saveTopScores(scores);
       io.emit("round result", {
         winner: socket.data.name,
         word: currentWord,
-        scores: usersScores(),
+        scores,
+        topScores: loadTopScores()
       });
       setTimeout(nextRound, 3000);
     }
   });
 
   socket.on("kick player", ({ kicked }) => {
-    if (socket.data.observer) return;
-    if (!socket.data.isAdmin) return; // فقط الأدمين يمكنه طرد اللاعبين
-    if (!kicked || kicked === socket.data.name) return;
+    if (!socket.data.isAdmin || !kicked || kicked === socket.data.name) return;
     const targetSocket = findSocketByName(kicked);
     if (!targetSocket) return;
     io.emit("kick message", {
@@ -133,27 +148,21 @@ io.on("connection", (socket) => {
   });
 
   socket.on("mute player", ({ muted }) => {
-    if (!socket.data.isAdmin) return; // فقط الأدمين يمكنه كتم اللاعبين
-    if (!muted) return;
-    mutedPlayers.add(muted);
-    // لا ترسل رسالة أو حدث معين هنا لأن الكتم خاص فقط للأدمين نفسه
+    if (socket.data.isAdmin && muted) mutedPlayers.add(muted);
   });
 
   socket.on("unmute player", ({ unmuted }) => {
-    if (!socket.data.isAdmin) return;
-    if (!unmuted) return;
-    mutedPlayers.delete(unmuted);
+    if (socket.data.isAdmin && unmuted) mutedPlayers.delete(unmuted);
   });
 
   socket.on("disconnect", () => {
     io.emit("state", {
       word: currentWord,
       scores: usersScores(),
+      topScores: loadTopScores()
     });
   });
 });
-
-const mutedPlayers = new Set();
 
 function usersScores() {
   const arr = [];
@@ -168,7 +177,11 @@ function usersScores() {
 function nextRound() {
   currentWord = words[Math.floor(Math.random() * words.length)];
   roundActive = true;
-  io.emit("new round", { word: currentWord, scores: usersScores() });
+  io.emit("new round", {
+    word: currentWord,
+    scores: usersScores(),
+    topScores: loadTopScores()
+  });
 }
 
 function isNameTaken(name) {
