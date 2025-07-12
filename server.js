@@ -2,11 +2,10 @@ const express = require("express");
 const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
-const fs = require("fs");
 
 const adminIPs = [];
-const topScoresFile = "./top-scores.json";
-const words = [
+
+const words = ["مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة",
   "زومبي", "انف", "شنب", "ممرضة", "بيت", "ذهب", "بروكلي", "ديناصور", "اسد",
   "طائرة", "ضفدع", "فاصوليا", "تاج", "سنجاب", "دجاج", "طريق", "كوالا", "فراشة",
   "يضحك", "تبولة", "سحلية", "شامبو", "محفظة", "نجوم", "باص", "صيدلي", "مخدة",
@@ -54,51 +53,55 @@ const words = [
   "نوم", "نمل", "مصور", "صحراء", "ذبابة", "ثوم", "شمام", "نحلة", "منديل",
   "قطة", "مسجد", "مفتاح", "راكون", "دراجة", "كنب", "مطر", "قطار", "بطه", "سلحفاة",
   "بلياردو", "مقص", "حقيبة", "شنطة", "فراخ", "ضبع", "كلب", "شاورما", "خاتم",
-  "مصباح", "دولفين", "افعى", "سكر", "بركان", "غواصة", "دب" ];
+  "مصباح", "دولفين", "افعى", "سكر", "بركان", "غواصة", "دب"
+];
 
 let currentWord = "";
 let roundActive = false;
-const mutedPlayers = new Set();
 
 app.use(express.static("public"));
 
-function loadTopScores() {
-  try {
-    return JSON.parse(fs.readFileSync(topScoresFile));
-  } catch {
-    return [];
-  }
-}
-
-function saveTopScores(scores) {
-  const top5 = scores
-    .sort((a, b) => b.points - a.points)
-    .slice(0, 5);
-  fs.writeFileSync(topScoresFile, JSON.stringify(top5, null, 2));
-}
+const playersData = new Map(); // key: playerID, value: {name, points}
+const adminIPsSet = new Set(adminIPs);
+const mutedPlayers = new Set();
 
 io.on("connection", (socket) => {
   const clientIP = socket.handshake.address;
   const isObserver = socket.handshake.headers.referer?.includes("observer=");
   socket.data.observer = isObserver;
-  socket.data.isAdmin = adminIPs.includes(clientIP);
+  socket.data.isAdmin = adminIPsSet.has(clientIP);
 
-  if (!isObserver) {
-    socket.data.points = 0;
-    const defaultName = generateUniqueName();
-    socket.data.name = defaultName;
-    socket.emit("set name", defaultName);
-  }
+  // انتظار إرسال playerID من الكلاينت (client) أو إنشاء جديد
+  socket.on("init", (playerID) => {
+    if (isObserver) {
+      socket.data.playerID = null;
+      socket.data.name = "مراقب";
+      socket.data.points = 0;
+      socket.emit("set name", socket.data.name);
+      return;
+    }
 
-  io.emit("state", {
-    word: currentWord,
-    scores: usersScores(),
-    topScores: loadTopScores()
+    if (!playerID || !playersData.has(playerID)) {
+      // إنشاء معرف جديد
+      playerID = generateUniqueID();
+      playersData.set(playerID, {
+        name: generateUniqueName(),
+        points: 0,
+      });
+    }
+    socket.data.playerID = playerID;
+    socket.data.name = playersData.get(playerID).name;
+    socket.data.points = playersData.get(playerID).points;
+
+    socket.emit("set id", playerID);
+    socket.emit("set name", socket.data.name);
+    sendStateToAll();
   });
 
   socket.on("chat message", (msg) => {
     if (socket.data.observer) return;
     if (mutedPlayers.has(socket.data.name) && !socket.data.isAdmin) return;
+
     io.emit("chat message", { name: socket.data.name, msg });
   });
 
@@ -108,13 +111,18 @@ io.on("connection", (socket) => {
       socket.emit("name-taken", name);
       return;
     }
+    if (!socket.data.playerID) return;
+
+    const playerID = socket.data.playerID;
+    playersData.get(playerID).name = name;
     socket.data.name = name;
-    socket.emit("set name", name);
-    io.emit("state", { word: currentWord, scores: usersScores(), topScores: loadTopScores() });
+
+    sendStateToAll();
   });
 
   socket.on("answer", (ans) => {
-    if (socket.data.observer || !roundActive) return;
+    if (socket.data.observer) return;
+    if (!roundActive) return;
     const trimmed = ans.trim().replace(/\s/g, "");
     const correctWordNoSpace = currentWord.replace(/\s/g, "");
 
@@ -124,21 +132,25 @@ io.on("connection", (socket) => {
       trimmed === "-"
     ) {
       roundActive = false;
-      socket.data.points++;
-      const scores = usersScores();
-      saveTopScores(scores);
+      if (!socket.data.playerID) return;
+      const playerID = socket.data.playerID;
+      playersData.get(playerID).points++;
+      socket.data.points = playersData.get(playerID).points;
+
       io.emit("round result", {
         winner: socket.data.name,
         word: currentWord,
-        scores,
-        topScores: loadTopScores()
+        scores: getUsersScores(),
       });
       setTimeout(nextRound, 3000);
     }
   });
 
   socket.on("kick player", ({ kicked }) => {
-    if (!socket.data.isAdmin || !kicked || kicked === socket.data.name) return;
+    if (socket.data.observer) return;
+    if (!socket.data.isAdmin) return;
+    if (!kicked || kicked === socket.data.name) return;
+
     const targetSocket = findSocketByName(kicked);
     if (!targetSocket) return;
     io.emit("kick message", {
@@ -148,40 +160,47 @@ io.on("connection", (socket) => {
   });
 
   socket.on("mute player", ({ muted }) => {
-    if (socket.data.isAdmin && muted) mutedPlayers.add(muted);
+    if (!socket.data.isAdmin) return;
+    if (!muted) return;
+    mutedPlayers.add(muted);
   });
 
   socket.on("unmute player", ({ unmuted }) => {
-    if (socket.data.isAdmin && unmuted) mutedPlayers.delete(unmuted);
+    if (!socket.data.isAdmin) return;
+    if (!unmuted) return;
+    mutedPlayers.delete(unmuted);
   });
 
   socket.on("disconnect", () => {
-    io.emit("state", {
-      word: currentWord,
-      scores: usersScores(),
-      topScores: loadTopScores()
-    });
+    sendStateToAll();
   });
 });
 
-function usersScores() {
+function getUsersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
     if (!socket.data.observer) {
-      arr.push({ name: socket.data.name, points: socket.data.points });
+      const playerID = socket.data.playerID;
+      if (playerID && playersData.has(playerID)) {
+        const pdata = playersData.get(playerID);
+        arr.push({ name: pdata.name, points: pdata.points });
+      }
     }
   }
   return arr;
 }
 
+function sendStateToAll() {
+  io.emit("state", {
+    word: currentWord,
+    scores: getUsersScores(),
+  });
+}
+
 function nextRound() {
   currentWord = words[Math.floor(Math.random() * words.length)];
   roundActive = true;
-  io.emit("new round", {
-    word: currentWord,
-    scores: usersScores(),
-    topScores: loadTopScores()
-  });
+  io.emit("new round", { word: currentWord, scores: getUsersScores() });
 }
 
 function isNameTaken(name) {
@@ -204,6 +223,14 @@ function generateUniqueName() {
     name = `لاعب${Math.floor(Math.random() * 10000)}`;
   } while (isNameTaken(name));
   return name;
+}
+
+// مولد معرف فريد عشوائي (غير متكرر)
+function generateUniqueID() {
+  return 'xxxxxx-xxxx-4xxx-yxxx-xxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
 }
 
 http.listen(process.env.PORT || 3000, () => {
