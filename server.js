@@ -198,7 +198,7 @@ function findSocketByName(name) {
 function generateUniqueName() {
   let name;
   do {
-    name = `لاعب${Math.floor(Math.random() * 10000)}`;
+    name = `User${Math.floor(Math.random() * 10000)}`;
   } while (isNameTaken(name));
   return name;
 }
