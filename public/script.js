@@ -29,7 +29,7 @@ socket.on("name-taken", (name) => {
   div.style.color = "blue";
   div.style.fontWeight = "bold";
   chatMessages.appendChild(div);
-  scrollChatIfAtBottom();
+  scrollChatToBottom();
 });
 
 socket.on("new round", (data) => {
@@ -53,7 +53,7 @@ socket.on("chat message", (data) => {
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
   chatMessages.appendChild(div);
-  scrollChatIfAtBottom();
+  scrollChatToBottom();
 });
 
 socket.on("kick message", (data) => {
@@ -62,7 +62,7 @@ socket.on("kick message", (data) => {
   div.style.color = "red";
   div.style.fontWeight = "bold";
   chatMessages.appendChild(div);
-  scrollChatIfAtBottom();
+  scrollChatToBottom();
 });
 
 // إرسال الإجابة
@@ -131,12 +131,7 @@ function renderScores(scores) {
   });
 }
 
-// التمرير التلقائي فقط إذا كنت في الأسفل
-function scrollChatIfAtBottom() {
-  const isAtBottom =
-    chatMessages.scrollHeight - chatMessages.scrollTop <=
-    chatMessages.clientHeight + 10;
-  if (isAtBottom) {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
+// تمرير الشات دائمًا لأسفل
+function scrollChatToBottom() {
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
