@@ -3,6 +3,8 @@ const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
 
+const adminIPs = ["156.38.42.220", "38.252.51.107"];
+
 const words = ["مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة",
   "زومبي", "انف", "شنب", "ممرضة", "بيت", "ذهب", "بروكلي", "ديناصور", "اسد",
   "طائرة", "ضفدع", "فاصوليا", "تاج", "سنجاب", "دجاج", "طريق", "كوالا", "فراشة",
@@ -60,8 +62,10 @@ let roundActive = false;
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
+  const clientIP = socket.handshake.address;
   const isObserver = socket.handshake.headers.referer?.includes("observer=");
   socket.data.observer = isObserver;
+  socket.data.isAdmin = adminIPs.includes(clientIP);
 
   if (!isObserver) {
     socket.data.points = 0;
@@ -77,6 +81,9 @@ io.on("connection", (socket) => {
 
   socket.on("chat message", (msg) => {
     if (socket.data.observer) return;
+    // إذا اللاعب ليس أدمين وتم كتمه من قبل الأدمين فلا ترسل رسائله
+    if (mutedPlayers.has(socket.data.name) && !socket.data.isAdmin) return;
+
     io.emit("chat message", { name: socket.data.name, msg });
   });
 
@@ -115,6 +122,7 @@ io.on("connection", (socket) => {
 
   socket.on("kick player", ({ kicked }) => {
     if (socket.data.observer) return;
+    if (!socket.data.isAdmin) return; // فقط الأدمين يمكنه طرد اللاعبين
     if (!kicked || kicked === socket.data.name) return;
     const targetSocket = findSocketByName(kicked);
     if (!targetSocket) return;
@@ -124,6 +132,19 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("mute player", ({ muted }) => {
+    if (!socket.data.isAdmin) return; // فقط الأدمين يمكنه كتم اللاعبين
+    if (!muted) return;
+    mutedPlayers.add(muted);
+    // لا ترسل رسالة أو حدث معين هنا لأن الكتم خاص فقط للأدمين نفسه
+  });
+
+  socket.on("unmute player", ({ unmuted }) => {
+    if (!socket.data.isAdmin) return;
+    if (!unmuted) return;
+    mutedPlayers.delete(unmuted);
+  });
+
   socket.on("disconnect", () => {
     io.emit("state", {
       word: currentWord,
@@ -131,6 +152,8 @@ io.on("connection", (socket) => {
     });
   });
 });
+
+const mutedPlayers = new Set();
 
 function usersScores() {
   const arr = [];
