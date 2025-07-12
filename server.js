@@ -2,12 +2,10 @@ const express = require("express");
 const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http);
-const fs = require("fs");
 
 const adminIPs = [];
 
-const words = [  // كامل بدون اختصار
-  "مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة",
+const words = ["مكياج", "اسنان", "زيتون", "ثور", "كاميرا", "شوكولاته", "بطارية", "طاولة",
   "زومبي", "انف", "شنب", "ممرضة", "بيت", "ذهب", "بروكلي", "ديناصور", "اسد",
   "طائرة", "ضفدع", "فاصوليا", "تاج", "سنجاب", "دجاج", "طريق", "كوالا", "فراشة",
   "يضحك", "تبولة", "سحلية", "شامبو", "محفظة", "نجوم", "باص", "صيدلي", "مخدة",
@@ -60,44 +58,59 @@ const words = [  // كامل بدون اختصار
 
 let currentWord = "";
 let roundActive = false;
-const topScoresFile = "top-scores.json";
 
 app.use(express.static("public"));
 
-const mutedPlayers = new Set();
-const scoresMap = new Map(); // للاحتفاظ بالنقاط حسب الـ Socket.id
-
 io.on("connection", (socket) => {
+  const clientIP = socket.handshake.address;
   const isObserver = socket.handshake.headers.referer?.includes("observer=");
   socket.data.observer = isObserver;
-
-  const name = generateUniqueName();
-  socket.data.name = name;
-  socket.data.points = scoresMap.get(socket.id) || 0;
+  socket.data.isAdmin = adminIPs.includes(clientIP);
 
   if (!isObserver) {
-    socket.emit("set name", name);
+    socket.data.points = 0;
+    const defaultName = generateUniqueName();
+    socket.data.name = defaultName;
+    socket.emit("set name", defaultName);
+    io.emit("chat message", { name: "", msg: `⚪ انضم اللاعب ${defaultName}`, color: "blue" });
   }
 
-  socket.on("set name", (newName) => {
-    if (!isObserver && !isNameTaken(newName)) {
-      socket.data.name = newName;
-      socket.emit("set name", newName);
-      io.emit("state", { word: currentWord, scores: usersScores() });
-    } else {
-      socket.emit("name-taken", newName);
+  io.emit("state", {
+    word: currentWord,
+    scores: usersScores(),
+  });
+
+  socket.on("chat message", (msg) => {
+    if (socket.data.observer) return;
+    if (mutedPlayers.has(socket.data.name) && !socket.data.isAdmin) return;
+
+    io.emit("chat message", { name: socket.data.name, msg });
+  });
+
+  socket.on("set name", (name) => {
+    if (socket.data.observer) return;
+    if (isNameTaken(name)) {
+      socket.emit("name-taken", name);
+      return;
     }
+    socket.data.name = name;
+    socket.emit("set name", name);
+    io.emit("state", { word: currentWord, scores: usersScores() });
   });
 
   socket.on("answer", (ans) => {
-    if (isObserver || !roundActive) return;
+    if (socket.data.observer) return;
+    if (!roundActive) return;
     const trimmed = ans.trim().replace(/\s/g, "");
-    const correct = currentWord.replace(/\s/g, "");
-    if (trimmed === correct || trimmed === "-") {
+    const correctWordNoSpace = currentWord.replace(/\s/g, "");
+
+    if (
+      trimmed === correctWordNoSpace ||
+      ans.trim() === currentWord ||
+      trimmed === "-"
+    ) {
       roundActive = false;
       socket.data.points++;
-      scoresMap.set(socket.id, socket.data.points);
-      updateTopScores(socket.data.name, socket.data.points);
       io.emit("round result", {
         winner: socket.data.name,
         word: currentWord,
@@ -107,24 +120,43 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("chat message", (msg) => {
-    if (!isObserver) {
-      io.emit("chat message", { name: socket.data.name, msg });
-    }
+  socket.on("kick player", ({ kicked }) => {
+    if (socket.data.observer) return;
+    if (!socket.data.isAdmin) return;
+    if (!kicked || kicked === socket.data.name) return;
+    const targetSocket = findSocketByName(kicked);
+    if (!targetSocket) return;
+    io.emit("kick message", {
+      kicker: socket.data.name,
+      kicked,
+    });
+  });
+
+  socket.on("mute player", ({ muted }) => {
+    if (!socket.data.isAdmin) return;
+    if (!muted) return;
+    mutedPlayers.add(muted);
+  });
+
+  socket.on("unmute player", ({ unmuted }) => {
+    if (!socket.data.isAdmin) return;
+    if (!unmuted) return;
+    mutedPlayers.delete(unmuted);
   });
 
   socket.on("disconnect", () => {
+    if (!socket.data.observer && socket.data.name) {
+      io.emit("chat message", { name: "", msg: `🔵 خرج اللاعب ${socket.data.name}`, color: "blue" });
+    }
+
     io.emit("state", {
       word: currentWord,
       scores: usersScores(),
     });
   });
-
-  io.emit("state", {
-    word: currentWord,
-    scores: usersScores(),
-  });
 });
+
+const mutedPlayers = new Set();
 
 function usersScores() {
   const arr = [];
@@ -149,30 +181,19 @@ function isNameTaken(name) {
   return false;
 }
 
+function findSocketByName(name) {
+  for (let [id, socket] of io.of("/").sockets) {
+    if (!socket.data.observer && socket.data.name === name) return socket;
+  }
+  return null;
+}
+
 function generateUniqueName() {
   let name;
   do {
     name = `لاعب${Math.floor(Math.random() * 10000)}`;
   } while (isNameTaken(name));
   return name;
-}
-
-function updateTopScores(name, points) {
-  let data = [];
-  try {
-    data = JSON.parse(fs.readFileSync(topScoresFile, "utf8"));
-  } catch {}
-
-  const existing = data.find((p) => p.name === name);
-  if (existing) {
-    if (points > existing.points) existing.points = points;
-  } else {
-    data.push({ name, points });
-  }
-
-  data.sort((a, b) => b.points - a.points);
-  data = data.slice(0, 5);
-  fs.writeFileSync(topScoresFile, JSON.stringify(data, null, 2));
 }
 
 http.listen(process.env.PORT || 3000, () => {
