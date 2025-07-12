@@ -111,29 +111,6 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // زر الطرد (كما لديك سابقاً)
-    if (!isObserver && p.name !== myName) {
-      const kickBtn = document.createElement("button");
-      kickBtn.textContent = "كك";
-      kickBtn.title = "اضغط لطرد هذا اللاعب (تأثير شكلي)";
-      kickBtn.style.fontSize = "10px";
-      kickBtn.style.padding = "1px 4px";
-      kickBtn.style.backgroundColor = "#f0a";
-      kickBtn.style.color = "white";
-      kickBtn.style.border = "none";
-      kickBtn.style.borderRadius = "3px";
-      kickBtn.style.cursor = "pointer";
-
-      kickBtn.onclick = () => {
-        const now = Date.now();
-        if (now - lastKickTime < 10000) return;
-        lastKickTime = now;
-        socket.emit("kick player", { kicked: p.name });
-      };
-
-      div.appendChild(kickBtn);
-    }
-
     // زر كتم خاص بك فقط
     if (!isObserver && p.name !== myName) {
       const muteBtn = document.createElement("button");
