@@ -22,8 +22,8 @@ const words = ["مكياج", "اسنان", "زيتون", "ثور", "كاميرا
   "اذن", "نافذة", "ممثل", "فيل", "ريموت", "شاطئ", "فيش", "حبل", "حامل", "سماء",
   "سجادة", "سلم",  "مندي", "ذرة", "نعامة", "عصا", "خبز", "صائغ", "كب كيك",
   "طفل", "قاضي", "سيارة", "بيتزا", "بيض", "مقلوبة", "عائلة",  "يد", "بائع",
-  "ديك", "ظفر", "شريط", "شاي", "حصان", "ستارة", , "مروحة", "سكين", "نجار",
-  "سلسلة", "مجرة", , "فم", "دب قطبي", "وحيد القرن", "حليب", "سماعة", "رز",
+  "ديك", "ظفر", "شريط", "شاي", "حصان", "ستارة", "مروحة", "سكين", "نجار",
+  "سلسلة", "مجرة", "فم", "دب قطبي", "وحيد القرن", "حليب", "سماعة", "رز",
   "شتاء", "مرحاض", "سلة", "سلطة", "هرم", "لسان", "يمشي", "قنديل", "خلاط", "مكرونة",
   "فرشاة", "سلك", "عطر", "كرة", "برج ايفل", "قرد", "قلم رصاص", "هيكل عظمي", "فطر",
   "غراب", "فلاشة", "حفرة", "مانجو", "ساعة رملية", "قبعة", "اطفائي", "الماس",
@@ -60,11 +60,15 @@ let roundActive = false;
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
-  socket.data.points = 0;
+  const isObserver = socket.handshake.headers.referer?.includes("observer=");
+  socket.data.observer = isObserver;
 
-  const defaultName = generateUniqueName();
-  socket.data.name = defaultName;
-  socket.emit("set name", defaultName);
+  if (!isObserver) {
+    socket.data.points = 0;
+    const defaultName = generateUniqueName();
+    socket.data.name = defaultName;
+    socket.emit("set name", defaultName);
+  }
 
   io.emit("state", {
     word: currentWord,
@@ -72,10 +76,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("chat message", (msg) => {
+    if (socket.data.observer) return;
     io.emit("chat message", { name: socket.data.name, msg });
   });
 
   socket.on("set name", (name) => {
+    if (socket.data.observer) return;
     if (isNameTaken(name)) {
       socket.emit("name-taken", name);
       return;
@@ -86,14 +92,15 @@ io.on("connection", (socket) => {
   });
 
   socket.on("answer", (ans) => {
+    if (socket.data.observer) return;
     if (!roundActive) return;
-    const trimmed = ans.trim().replace(/\s/g, ""); // نشيل المسافات من الإجابة
+    const trimmed = ans.trim().replace(/\s/g, "");
     const correctWordNoSpace = currentWord.replace(/\s/g, "");
 
     if (
-      trimmed === correctWordNoSpace || // بدون مسافات
-      ans.trim() === currentWord ||     // بنفس الشكل الأصلي مع المسافات
-      trimmed === "،"                   
+      trimmed === correctWordNoSpace ||
+      ans.trim() === currentWord ||
+      trimmed === "،"
     ) {
       roundActive = false;
       socket.data.points++;
@@ -107,6 +114,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("kick player", ({ kicked }) => {
+    if (socket.data.observer) return;
     if (!kicked || kicked === socket.data.name) return;
     const targetSocket = findSocketByName(kicked);
     if (!targetSocket) return;
@@ -127,7 +135,9 @@ io.on("connection", (socket) => {
 function usersScores() {
   const arr = [];
   for (let [id, socket] of io.of("/").sockets) {
-    arr.push({ name: socket.data.name, points: socket.data.points });
+    if (!socket.data.observer) {
+      arr.push({ name: socket.data.name, points: socket.data.points });
+    }
   }
   return arr;
 }
@@ -140,14 +150,14 @@ function nextRound() {
 
 function isNameTaken(name) {
   for (let [id, socket] of io.of("/").sockets) {
-    if (socket.data.name === name) return true;
+    if (!socket.data.observer && socket.data.name === name) return true;
   }
   return false;
 }
 
 function findSocketByName(name) {
   for (let [id, socket] of io.of("/").sockets) {
-    if (socket.data.name === name) return socket;
+    if (!socket.data.observer && socket.data.name === name) return socket;
   }
   return null;
 }
