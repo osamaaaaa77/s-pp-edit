@@ -40,7 +40,7 @@ socket.on("new round", (data) => {
 });
 
 socket.on("round result", (data) => {
-  answerChat.textContent = `✔️ ${data.winner} جاوب`;
+  answerChat.textContent = `✅ ${data.winner} جاوب`;
   renderScores(data.scores);
 });
 
