@@ -101,7 +101,7 @@ function renderScores(scores) {
     div.style.gap = "6px";
 
     const textSpan = document.createElement("span");
-    const pingDisplay = p.ping > 0 ? ` ${p.ping}🛜` : ""; // البنق إذا أكثر من صفر فقط
+    const pingDisplay = p.ping > 0 ? ` ${p.ping}🛜` : "";
     textSpan.textContent = `${p.name}: ${p.points}${pingDisplay}`;
     div.appendChild(textSpan);
 
