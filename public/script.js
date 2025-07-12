@@ -9,23 +9,34 @@ const scoresDiv = document.getElementById("scores");
 const changeName = document.getElementById("change-name");
 
 let myName = null;
-let lastKickTime = 0;
+let playerID = localStorage.getItem("playerID") || null;
 const isObserver = window.location.search.includes("observer=");
 
 // قائمة أسماء اللاعبين المكتومين محلياً
 let mutedPlayers = JSON.parse(localStorage.getItem("mutedPlayers") || "{}");
 
-// زر تغيير الاسم
+// عند الاتصال أرسل معرف اللاعب أو null ليتم إنشاؤه من السيرفر
+socket.emit("init", playerID);
+
+// استلام معرف جديد من السيرفر (إذا تم إنشاؤه)
+socket.on("set id", (id) => {
+  playerID = id;
+  localStorage.setItem("playerID", playerID);
+});
+
+// استقبال تعيين الاسم
+socket.on("set name", (name) => {
+  myName = name;
+});
+
+// عند تغيير الاسم عبر الزر
 changeName.onclick = () => {
   if (isObserver) return;
   const name = prompt("اكتب اسمك:");
   if (name) socket.emit("set name", name);
 };
 
-socket.on("set name", (name) => {
-  myName = name;
-});
-
+// استقبال الاسم المرفوض
 socket.on("name-taken", (name) => {
   const div = document.createElement("div");
   div.textContent = `⚠️ هذا الاسم "${name}" مستخدم`;
@@ -35,6 +46,7 @@ socket.on("name-taken", (name) => {
   scrollChatToBottom();
 });
 
+// استقبال جولة جديدة
 socket.on("new round", (data) => {
   currentWord.textContent = data.word;
   answerInput.value = "";
@@ -42,19 +54,21 @@ socket.on("new round", (data) => {
   renderScores(data.scores);
 });
 
+// استقبال نتيجة الجولة
 socket.on("round result", (data) => {
   answerChat.textContent = `✅ ${data.winner} جاوب`;
   renderScores(data.scores);
 });
 
+// استقبال الحالة العامة
 socket.on("state", (data) => {
   currentWord.textContent = data.word;
   renderScores(data.scores);
 });
 
-// استقبال رسالة شات
+// استقبال رسائل الشات
 socket.on("chat message", (data) => {
-  if (mutedPlayers[data.name]) return; // تجاهل رسائل اللاعبين المكتومين محلياً
+  if (mutedPlayers[data.name]) return;
 
   const div = document.createElement("div");
   div.textContent = `${data.name}: ${data.msg}`;
@@ -62,6 +76,7 @@ socket.on("chat message", (data) => {
   scrollChatToBottom();
 });
 
+// استقبال رسائل الطرد
 socket.on("kick message", (data) => {
   const div = document.createElement("div");
   div.textContent = `${data.kicker} يطرد ${data.kicked}`;
@@ -71,7 +86,7 @@ socket.on("kick message", (data) => {
   scrollChatToBottom();
 });
 
-// إرسال الإجابة
+// إرسال الإجابة عند الضغط على Enter
 answerInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -84,7 +99,7 @@ answerInput.addEventListener("keydown", (e) => {
   }
 });
 
-// إرسال رسالة شات
+// إرسال رسالة الشات عند الضغط على Enter
 chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -97,14 +112,14 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-// عرض النقاط مع زر الكتم الخاص بك
+// عرض النقاط مع زر الكتم
 function renderScores(scores) {
   scoresDiv.innerHTML = "";
 
   // ترتيب النقاط تنازلياً
   scores.sort((a, b) => b.points - a.points);
 
-  // عرض النقاط الحالية
+  // عرض النقاط
   scores.forEach((p) => {
     const div = document.createElement("div");
     div.style.display = "flex";
@@ -115,7 +130,6 @@ function renderScores(scores) {
     textSpan.textContent = `${p.name}: ${p.points}`;
     div.appendChild(textSpan);
 
-    // زر كتم خاص بك فقط
     if (!isObserver && p.name !== myName) {
       const muteBtn = document.createElement("button");
       muteBtn.textContent = mutedPlayers[p.name] ? "🔇" : "🔊";
@@ -144,63 +158,31 @@ function renderScores(scores) {
     scoresDiv.appendChild(div);
   });
 
-  // حفظ أعلى النقاط محلياً (Top 5)
-  saveTopScores(scores);
-
-  // عرض أعلى النقاط تحت القائمة
   displayTopScores();
 }
 
-function saveTopScores(scores) {
-  // احفظ فقط أعلى 5، كل عنصر: {name, points}
-  const top5 = scores.slice(0, 5).map(p => ({name: p.name, points: p.points}));
-
-  // اقرأ السابق من التخزين
-  let saved = JSON.parse(localStorage.getItem("topScores") || "[]");
-
-  // دمج القائمتين مع تحديث أعلى النقاط
-  top5.forEach(newScore => {
-    const index = saved.findIndex(s => s.name === newScore.name);
-    if (index === -1) {
-      saved.push(newScore);
-    } else {
-      if (newScore.points > saved[index].points) {
-        saved[index].points = newScore.points;
-      }
-    }
-  });
-
-  // ترتيب وحفظ أفضل 5 فقط
-  saved.sort((a,b) => b.points - a.points);
-  saved = saved.slice(0,5);
-
-  localStorage.setItem("topScores", JSON.stringify(saved));
-}
-
+// عرض أعلى النقاط محفوظة محلياً
 function displayTopScores() {
   let topScores = JSON.parse(localStorage.getItem("topScores") || "[]");
   if (!topScores.length) return;
 
-  // عنوان القسم
   const title = document.createElement("div");
   title.textContent = "Top Scores";
   title.style.fontWeight = "bold";
   title.style.marginTop = "12px";
   title.style.fontSize = "18px";
-  title.style.color = "#007acc";  // لون أزرق مناسب
+  title.style.color = "#007acc";
   scoresDiv.appendChild(title);
 
-  // جدول أعلى النقاط
   topScores.forEach((p, i) => {
     const div = document.createElement("div");
-    div.textContent = `${i+1}. ${p.name}: ${p.points}`;
+    div.textContent = `${i + 1}. ${p.name}: ${p.points}`;
     div.style.padding = "2px 0";
     div.style.color = "#004080";
     scoresDiv.appendChild(div);
   });
 }
 
-// تمرير الشات دائمًا لأسفل
 function scrollChatToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
